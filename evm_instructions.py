@@ -1,3 +1,5 @@
+from hashlib import sha3_256
+
 from binaryninja import (
     LLIL_TEMP,
     Architecture,
@@ -143,7 +145,9 @@ def sar(il: LowLevelILFunction, addr: int, imm: int) -> ExpressionIndex:
 
 
 def sha3(il: LowLevelILFunction, addr: int, imm: int) -> ExpressionIndex:
-    return il.append(il.unimplemented())
+    # return il.push(EVM_ADDR_SIZE, il.const(EVM_ADDR_SIZE, int.from_bytes(sha3_256(il.pop(EVM_ADDR_SIZE)).digest(), "big")))
+    # return il.append(il.unimplemented())
+    return push_helper(il, il.expr(size=EVM_ADDR_SIZE, operation='sha3', a=il.pop(EVM_ADDR_SIZE)))
 
 
 def address(il: LowLevelILFunction, addr: int, imm: int) -> ExpressionIndex:

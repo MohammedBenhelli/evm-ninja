@@ -1,5 +1,7 @@
 from dataclasses import dataclass, field
+from enum import IntEnum
 from threading import Thread
+import z3
 
 from binaryninja import BackgroundTaskThread
 
@@ -75,6 +77,13 @@ class Block:
                 jumpdests.add(self.instructions[i - 1].var.value)
         return jumpdests
 
+    @property
+    def to_constraints(self):
+        constraints = []
+        for inst in self.instructions:
+            pass
+        return constraints
+
     # TODO: iterate in reverse on the instructions to compute the jump destination?
     @property
     def true_branch_destination(self) -> int:
@@ -97,6 +106,17 @@ class Block:
             if instruction.name.startswith("PUSH"):
                 return instruction.var.value
         return 0
+
+    @property
+    def false_branch(self):
+        pass
+
+    @property
+    def true_branch(self):
+        pass
+
+    def __contains__(self, address: int) -> bool:
+        return self.start.location <= address <= self.end.location
 
 
 @dataclass
@@ -152,3 +172,23 @@ class Function:
                 return False
         self.attributes.add("view")
         return True
+
+
+class BranchEnum(IntEnum):
+    UnconditionalBranch = 0
+    FalseBranch = 1
+    TrueBranch = 2
+    CallDestination = 3
+    FunctionReturn = 4
+    Call = 5
+    DelegateCall = 6
+    CreateCall = 7
+    Creat2Call = 8
+    IndirectBranch = 9
+    ExceptionBranch = 10
+
+
+@dataclass
+class Branch:
+    type: BranchEnum
+    target: int = None

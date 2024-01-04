@@ -20,6 +20,7 @@ from binaryninja import (
     SymbolType,
     log_debug,
 )
+from interval3 import Interval, IntervalSet
 
 from .cfg import CFG
 from .constants import (
@@ -34,9 +35,12 @@ from .constants import (
     LOGGER_SYMBOL,
 )
 from .disas import disassemble_one
-from .interval3 import Interval, IntervalSet
 from .utils import convert_bytecode
 from .vsa import VsaNotification
+
+
+# TODO: clean code
+global_cfg: CFG
 
 
 class EVM(Architecture):
@@ -56,19 +60,34 @@ class EVM(Architecture):
     }
     stack_pointer: str = "sp"
 
+    def get_true_branch(self: "EVM", addr: int) -> int | bool:
+        global global_cfg
+        if addr in global_cfg.computed_branches:
+            return global_cfg.computed_branches[addr][0].target
+        return False
+
     def get_instruction_info(self: "EVM", data: bytes, addr: int):
+        global global_cfg
         instruction = disassemble_one(data)
         if instruction.name == "EOF":
             return None
-
         result = InstructionInfo()
         result.length = instruction.size
         if instruction.name == "JUMP":
             # TODO compute potential jump branch
-            result.add_branch(BranchType.UnresolvedBranch)
+            if (dest := self.get_true_branch(addr)) is not False:
+                # log_debug(f"Resolved branch at {addr}: {dest}", LOGGER_SYMBOL)
+                result.add_branch(BranchType.TrueBranch, dest + 1)
+            else:
+                log_debug(f"Unresolved branch at {addr}", LOGGER_SYMBOL)
+                result.add_branch(BranchType.UnresolvedBranch)
         elif instruction.name == "JUMPI":
             # TODO compute TrueBranch
-            result.add_branch(BranchType.UnresolvedBranch)
+            if (dest := self.get_true_branch(addr)) is not False:
+                result.add_branch(BranchType.TrueBranch, dest + 1)
+            else:
+                log_debug(f"Unresolved branch at {addr}", LOGGER_SYMBOL)
+                result.add_branch(BranchType.UnresolvedBranch)
             result.add_branch(BranchType.FalseBranch, addr + 1)
         elif instruction.name in EVM_FUNCTION_EXCEPTION:
             result.add_branch(BranchType.ExceptionBranch, addr)
@@ -150,6 +169,7 @@ class EVMView(BinaryView, ABC):
         self.raw = bv
 
     def init(self: "EVMView") -> bool:
+        global global_cfg
         self.arch = Architecture["EVM"]
         self.max_function_size_for_analysis = 0
         self.platform = Architecture["EVM"].standalone_platform
@@ -181,6 +201,7 @@ class EVMView(BinaryView, ABC):
             )
 
         cfg = CFG(bytecode)
+        global_cfg = cfg
         self.register_notification(VsaNotification())
         Function.set_default_session_data("cfg", cfg)
         self.add_entry_point(0)

@@ -24,8 +24,8 @@ def disassemble_one(bytecode: bytes, location: int = 0) -> Instruction:
         input_length=op[1],
         output_length=op[2],
         var=Variable(
-            value=int.from_bytes(bytecode[location + 1:location + op[-1]], byteorder="big") if op[-1] > 1 else 0,
-        ),
+            value=int.from_bytes(bytecode[location + 1:location + op[-1]], byteorder="big"),
+        ) if op[-1] > 1 else Variable(value=0),
     )
 
 
